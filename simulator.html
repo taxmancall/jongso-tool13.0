@@ -250,7 +250,7 @@ input:focus,select:focus{outline:none;border-color:#185FA5;}
 <div class="container">
 <a class="back" href="index.html">← 인덱스로 돌아가기</a>
 <h1>🧮 종합소득세 신고대리 가결산 시뮬레이터</h1>
-<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v62</span> <span style="font-size:11px;color:#888;">(근로소득공제 §47 공제율 정정)</span></p>
+<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v63</span> <span style="font-size:11px;color:#888;">(다중근무지 위하고 방식 안분)</span></p>
 
 <!-- 이름 입력 -->
 <!-- ========== 입력 영역 (PDF는 결과만 인쇄) ========== -->
@@ -2532,8 +2532,11 @@ function restoreFormData(data){
     if(!r) return;
     if(row.salary) r.querySelector('.w-salary').value = row.salary;
     if(row.tax) r.querySelector('.w-tax').value = row.tax;
-    if(row.income) r.querySelector('.w-income').value = row.income;
+    // row.income은 무시 — v63 안분 로직으로 재계산
   });
+  // ★ v63: 복원 직후 근로소득공제 강제 재계산 (옛 캐시값 정정)
+  if(typeof recalcAllWorkRows === 'function') recalcAllWorkRows();
+  if(typeof updateWorkSum === 'function') updateWorkSum();
   
   // 5. 지출 행 복원
   document.querySelectorAll('.expense-row').forEach(r => r.remove());
@@ -2790,6 +2793,8 @@ function removeWorkRow(i){
   if(document.querySelectorAll('.work-row').length===0){
     addWorkRow();
   }
+  // ★ v63: 행 삭제 시 남은 행들의 안분 재계산
+  recalcAllWorkRows();
   updateWorkSum();
 }
 
@@ -2813,14 +2818,53 @@ function calcWorkDeductFromSalary(s){
 }
 
 // ★ 행별 표시는 단독신고 가정의 참고용 (실제는 합산 후 재계산)
+// ★ v63: 위하고/홈택스 방식 — 단일 행은 단독 공식,
+//   2개 이상 행이 있을 때는 첫 행은 단독 공식, 나머지 행은 (합산공제 − 누적 단독공제) 안분
+//   → 행별 공제 합이 합산공제와 정확히 일치해 경고문 발생 안함
 function calcWorkRow(i){
-  const row = document.querySelector('.work-row[data-idx="'+i+'"]');
-  if(!row) return;
-  const s = N(row.querySelector('.w-salary').value);
-  const d = calcWorkDeductFromSalary(s);
-  row.querySelector('.w-deduct').value = d;
-  row.querySelector('.w-income').value = Math.round(Math.max(0,s-d));
+  // 모든 행을 재계산해서 안분 — 단일 행 변경이라도 합산값이 달라지므로 전체 갱신 필요
+  recalcAllWorkRows();
   updateWorkSum();
+}
+
+// ★ v63: 모든 근무지 행을 위하고 방식으로 안분해서 일괄 갱신
+function recalcAllWorkRows(){
+  const rows = [...document.querySelectorAll('.work-row')];
+  // 1) 각 행의 단독 공제액 산정
+  const calcs = rows.map(row=>{
+    const s = N(row.querySelector('.w-salary').value);
+    return { row, s, soloDeduct: calcWorkDeductFromSalary(s) };
+  });
+  // 2) 단일 행이면 단독 공식 그대로 적용
+  if(calcs.length <= 1){
+    calcs.forEach(c=>{
+      c.row.querySelector('.w-deduct').value = c.soloDeduct;
+      c.row.querySelector('.w-income').value = Math.max(0, c.s - c.soloDeduct);
+    });
+    return;
+  }
+  // 3) 2개 이상이면 합산 단일 공제 산정 후 위하고 방식 안분
+  //    첫 행: 단독 공제
+  //    둘째 행부터: 직전까지 누적 총급여+이번 행 총급여 합산 공제 − 직전까지 누적 공제
+  const totalSalary = calcs.reduce((a, c) => a + c.s, 0);
+  const totalDeduct = calcWorkDeductFromSalary(totalSalary);
+  let cumSalary = 0;
+  let cumDeduct = 0;
+  calcs.forEach((c, idx)=>{
+    cumSalary += c.s;
+    let rowDeduct;
+    if(idx === calcs.length - 1){
+      // 마지막 행 — 누적 보정으로 합계 정확히 맞춤
+      rowDeduct = totalDeduct - cumDeduct;
+    } else {
+      // 첫 행~ 마지막 직전: 그때까지의 누적 합산공제 − 직전까지 누적
+      rowDeduct = calcWorkDeductFromSalary(cumSalary) - cumDeduct;
+    }
+    if(rowDeduct < 0) rowDeduct = 0;  // 안전장치
+    cumDeduct += rowDeduct;
+    c.row.querySelector('.w-deduct').value = rowDeduct;
+    c.row.querySelector('.w-income').value = Math.max(0, c.s - rowDeduct);
+  });
 }
 
 // ★ 핵심수정: 합산 총급여로 근로소득공제 1회 계산 (홈택스 방식)
@@ -2847,15 +2891,15 @@ function updateWorkSum(){
   if(sumI) sumI.textContent = F(t.income)+'원';
   if(sumT) sumT.textContent = F(t.tax)+'원';
   if(sumD) sumD.textContent = F(t.deduct)+'원';
-  // 다중 근무지인데 행별 공제 합과 합산공제가 다르면 경고 표시
+  // ★ v63: 다중 근무지면 위하고 방식 안내 (이전: 행별합과 다르다는 경고)
   const rows = document.querySelectorAll('.work-row');
-  let rowDeductSum = 0;
-  rows.forEach(r=>{ rowDeductSum += N(r.querySelector('.w-deduct').value); });
   const warnEl = document.getElementById('work-merge-warn');
   if(warnEl){
-    if(rows.length >= 2 && Math.abs(rowDeductSum - t.deduct) > 1){
+    if(rows.length >= 2){
       warnEl.style.display = 'block';
-      warnEl.innerHTML = `⚠️ <strong>다중 근무지 합산</strong>: 행별 근로소득공제 합 ${F(rowDeductSum)}원이 아닌, <strong>합산 총급여 ${F(t.salary)}원에 공제율 적용한 ${F(t.deduct)}원</strong>이 적용됩니다 (소득세법 §47).`;
+      warnEl.style.background = '#F0F7FF';
+      warnEl.style.color = '#0C447C';
+      warnEl.innerHTML = `ℹ️ <strong>다중 근무지 합산신고</strong> (소법 §70②, §47): 합산 총급여 <strong>${F(t.salary)}원</strong>에 단일 공제율 적용 → 공제 <strong>${F(t.deduct)}원</strong>. 행별 표시는 위하고/홈택스 방식 안분 (첫 행 단독공제, 이후 합산공제 추가분).`;
     } else {
       warnEl.style.display = 'none';
     }
