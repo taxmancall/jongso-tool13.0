@@ -41,9 +41,21 @@ input:focus,select:focus{outline:none;border-color:#185FA5;}
 .dd-item .rate{font-size:11px;color:#888;float:right;}
 .selected-industry{background:#E6F1FB;border-radius:8px;padding:8px 12px;font-size:12px;color:#0C447C;margin-top:6px;display:none;}
 .selected-industry.show{display:flex;justify-content:space-between;align-items:center;}
-.income-rows{display:flex;flex-direction:column;gap:6px;}
-.income-row{display:grid;grid-template-columns:1fr 160px auto;gap:6px;align-items:center;}
+.income-rows{display:flex;flex-direction:column;gap:10px;}
+/* ★ v60: 명세서 모드 — 행을 2줄로 확장 (업종·금액 / 신고방식·감면 명세서) */
+.income-row{display:flex;flex-direction:column;gap:6px;padding:10px;background:#fafaf8;border:1px solid #e8e6df;border-radius:8px;position:relative;}
+.income-row .row-top{display:grid;grid-template-columns:1fr 130px 160px auto;gap:6px;align-items:center;}
+.income-row .row-bottom{display:grid;grid-template-columns:120px 160px 130px 1fr;gap:6px;align-items:center;padding-top:6px;border-top:1px dashed #d8d4c4;}
+.income-row .row-bottom .rb-lbl{font-size:11px;color:#888;font-weight:600;padding-left:2px;}
+.income-row .row-bottom select, .income-row .row-bottom input{padding:6px 8px;border:1px solid #d8d4c4;border-radius:6px;font-size:12px;background:#fff;width:100%;}
+.income-row .biz-group-hdr{position:absolute;top:-9px;left:10px;background:#185FA5;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.income-row.is-other{background:#FFF8E7;border-color:#D4A53D;}
+.income-row.is-other .row-bottom{display:none;}
 .income-row .ind-info{font-size:11px;color:#888;margin-top:2px;}
+@media(max-width:700px){
+  .income-row .row-top{grid-template-columns:1fr;gap:8px;}
+  .income-row .row-bottom{grid-template-columns:1fr 1fr;}
+}
 .rb{padding:6px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;color:#666;font-family:inherit;white-space:nowrap;}
 .rb:hover{background:#f0f0ee;}
 .add-row-btn{margin-top:6px;padding:6px 14px;border:1px dashed #ddd;border-radius:8px;background:transparent;cursor:pointer;font-size:12px;color:#888;font-family:inherit;width:100%;}
@@ -238,7 +250,7 @@ input:focus,select:focus{outline:none;border-color:#185FA5;}
 <div class="container">
 <a class="back" href="index.html">← 인덱스로 돌아가기</a>
 <h1>🧮 종합소득세 신고대리 가결산 시뮬레이터</h1>
-<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v59</span> <span style="font-size:11px;color:#888;">(수입/잡이익 분리 — 신카발행세액공제 등)</span></p>
+<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v60</span> <span style="font-size:11px;color:#888;">(사업장별 명세서 모드 — 추계+장부 혼합 자동 처리)</span></p>
 
 <!-- 이름 입력 -->
 <!-- ========== 입력 영역 (PDF는 결과만 인쇄) ========== -->
@@ -279,43 +291,95 @@ input:focus,select:focus{outline:none;border-color:#185FA5;}
 
 <!-- 수입금액 카드 -->
 <div class="card">
-  <div class="card-title">💰 수입금액 및 업종</div>
+  <div class="card-title">💰 수입금액 및 업종 <span style="font-size:11px;font-weight:400;color:#888;">· 사업장별 신고방식·감면 명세 모드 (v60)</span></div>
   <div class="income-rows" id="income-rows">
     <div class="income-row" data-idx="0">
-      <div>
-        <label>업종 검색</label>
-        <div class="search-wrap">
-          <input type="text" class="search-input" placeholder="업종코드 또는 업종명 검색 (예: 940909, 인적용역)" oninput="searchInd(this,0)" onfocus="searchInd(this,0)" onblur="setTimeout(()=>hideDD(0),200)">
-          <div class="dropdown" id="dd-0"></div>
+      <div class="row-top">
+        <div>
+          <label>업종 검색</label>
+          <div class="search-wrap">
+            <input type="text" class="search-input" placeholder="업종코드 또는 업종명 검색 (예: 940909, 인적용역)" oninput="searchInd(this,0)" onfocus="searchInd(this,0)" onblur="setTimeout(()=>hideDD(0),200)">
+            <div class="dropdown" id="dd-0"></div>
+          </div>
+          <div class="selected-industry" id="sel-0">
+            <span id="sel-label-0">-</span>
+            <span id="sel-rate-0" style="font-size:11px;"></span>
+          </div>
+          <input type="hidden" class="ind-code" id="ind-code-0" value="">
+          <input type="hidden" class="ind-simp" id="ind-simp-0" value="0">
+          <input type="hidden" class="ind-std" id="ind-std-0" value="0">
+          <input type="hidden" class="biz-no" id="biz-no-0" value="">
+          <input type="hidden" class="biz-name" id="biz-name-0" value="">
         </div>
-        <div class="selected-industry" id="sel-0">
-          <span id="sel-label-0">-</span>
-          <span id="sel-rate-0" style="font-size:11px;"></span>
+        <div>
+          <label>수입금액 (원)</label>
+          <input type="number" class="inc-amt" placeholder="0" oninput="updateTotalRev()">
         </div>
-        <input type="hidden" class="ind-code" id="ind-code-0" value="">
-        <input type="hidden" class="ind-simp" id="ind-simp-0" value="0">
-        <input type="hidden" class="ind-std" id="ind-std-0" value="0">
+        <div>
+          <label style="font-size:11px;">종류</label>
+          <select class="inc-type" id="inc-type-0" onchange="onIncTypeChange(0)" style="width:100%;padding:8px 6px;border:1px solid #d8d4c4;border-radius:6px;font-size:12px;background:#fff;">
+            <option value="rev">수입금액</option>
+            <option value="other">잡이익(영업외수익)</option>
+          </select>
+        </div>
+        <button class="rb" onclick="removeRow(0)" style="margin-top:20px;">✕</button>
       </div>
-      <div>
-        <label>수입금액 (원)</label>
-        <input type="number" class="inc-amt" placeholder="0" oninput="updateTotalRev()">
+      <!-- ★ v60: 명세서 — 사업장별 신고방식·감면 설정 -->
+      <div class="row-bottom">
+        <div>
+          <div class="rb-lbl">기장의무</div>
+          <select class="inc-bk" id="inc-bk-0" onchange="updateTotalRev()">
+            <option value="auto">자동(안내문)</option>
+            <option value="simple">간편장부대상자</option>
+            <option value="double">복식부기의무자</option>
+          </select>
+        </div>
+        <div>
+          <div class="rb-lbl">신고방식</div>
+          <select class="inc-filing" id="inc-filing-0" onchange="updateTotalRev()">
+            <option value="auto">자동 추천</option>
+            <option value="book">장부신고</option>
+            <option value="std">추계(기준경비율)</option>
+            <option value="simp">추계(단순경비율)</option>
+          </select>
+        </div>
+        <div>
+          <div class="rb-lbl">중기특감(§7)</div>
+          <select class="inc-exempt" id="inc-exempt-0" onchange="onExemptChange(0)">
+            <option value="auto">자동 판정</option>
+            <option value="none">미적용</option>
+            <option value="sme7-10">§7 10% (수도권 소기업)</option>
+            <option value="sme7-15">§7 15% (수도권외 소·중기 도소매)</option>
+            <option value="sme7-20">§7 20% (수도권외 소기업)</option>
+            <option value="sme7-30">§7 30% (수도권외 소기업 일부)</option>
+            <option value="startup-50">§6 창업감면 50% (5년)</option>
+            <option value="startup-100">§6 청년창업 100% (5년)</option>
+          </select>
+        </div>
+        <div>
+          <div class="rb-lbl">메모</div>
+          <input type="text" class="inc-memo" id="inc-memo-0" placeholder="예: 인적용역 3.3% 추계 / 부업">
+        </div>
       </div>
-      <!-- ★ v59: 종류 토글 (수입/잡이익) — 신카발행세액공제·잡이익 등은 경비율 미적용 -->
-      <div>
-        <label style="font-size:11px;">종류 <span style="color:#888;font-weight:400;">(신카발행·잡이익 등)</span></label>
-        <select class="inc-type" id="inc-type-0" onchange="updateTotalRev()" style="width:100%;padding:8px 6px;border:1px solid #d8d4c4;border-radius:6px;font-size:12px;background:#fff;">
-          <option value="rev">수입금액 (경비율 적용)</option>
-          <option value="other">잡이익 (영업외수익)</option>
-        </select>
-      </div>
-      <button class="rb" onclick="removeRow(0)" style="margin-top:20px;">✕</button>
     </div>
   </div>
-  <button class="add-row-btn" onclick="addIncomeRow()">+ 업종 추가</button>
+  <button class="add-row-btn" onclick="addIncomeRow()">+ 업종(사업장) 추가</button>
   <div style="margin-top:10px;padding:8px 12px;background:#f8f8f6;border-radius:8px;font-size:12px;color:#555;">
     총 수입금액: <strong id="total-rev-display">0원</strong>
     <span id="total-nonop-display" style="display:none;margin-left:12px;color:#633806;">· 잡이익: <strong id="total-nonop-val">0원</strong></span>
   </div>
+  <!-- ★ v60: 명세서 모드 안내 -->
+  <details style="margin-top:8px;font-size:11px;color:#666;">
+    <summary style="cursor:pointer;color:#185FA5;font-weight:600;">📖 명세서 모드 사용법 (펼치기)</summary>
+    <div style="padding:8px 10px;background:#F0F7FF;border-radius:6px;margin-top:6px;line-height:1.7;">
+      <strong>각 사업장(행)별 개별 설정:</strong><br>
+      • <strong>신고방식 "자동 추천"</strong>: 인적용역(94***) + 수입 4,800만 이하 → 단순경비율 추계 / 그 외 → 장부신고<br>
+      • <strong>중기특감 "자동 판정"</strong>: 업종코드 기반 §7 대상 여부 판정 (도소매·제조 등 — 인적용역·서비스 일부 제외)<br>
+      • <strong>혼합 신고 시</strong>: 사업장별 소득금액 산출 후 합산, 감면은 <strong>조특법 §132 안분</strong> 적용 (감면대상 사업소득금액 / 종합소득금액 × 산출세액 × 감면율)<br>
+      • <strong>가산세</strong>: 추계신고한 사업장에 한해 무기장가산세 산정, 직전수입 4,800만 미만 소규모는 면제(§81의5②)<br>
+      <span style="color:#A06900;">⚠️ 행마다 신고방식·감면을 다르게 설정 가능. 안내문 업로드 시 1차 자동 매핑 후 검토·수정.</span>
+    </div>
+  </details>
   <!-- ★ v32: 직접 입력 시에도 평균소득률 표시 -->
   <div id="avg-income-rate-direct" style="display:none;margin-top:8px;padding:8px 10px;background:#F0F7FF;border-left:3px solid #185FA5;border-radius:4px;font-size:11px;line-height:1.7;"></div>
 </div>
@@ -1642,33 +1706,89 @@ function addIncomeRow(){
   div.className = 'income-row';
   div.dataset.idx = idx;
   div.innerHTML = `
-    <div>
-      <label>업종 검색</label>
-      <div class="search-wrap">
-        <input type="text" class="search-input" placeholder="업종코드 또는 업종명 검색" oninput="searchInd(this,${idx})" onfocus="searchInd(this,${idx})" onblur="setTimeout(()=>hideDD(${idx}),200)">
-        <div class="dropdown" id="dd-${idx}"></div>
+    <div class="row-top">
+      <div>
+        <label>업종 검색</label>
+        <div class="search-wrap">
+          <input type="text" class="search-input" placeholder="업종코드 또는 업종명 검색" oninput="searchInd(this,${idx})" onfocus="searchInd(this,${idx})" onblur="setTimeout(()=>hideDD(${idx}),200)">
+          <div class="dropdown" id="dd-${idx}"></div>
+        </div>
+        <div class="selected-industry" id="sel-${idx}">
+          <span id="sel-label-${idx}">-</span>
+          <span id="sel-rate-${idx}" style="font-size:11px;"></span>
+        </div>
+        <input type="hidden" class="ind-code" id="ind-code-${idx}" value="">
+        <input type="hidden" class="ind-simp" id="ind-simp-${idx}" value="0">
+        <input type="hidden" class="ind-std" id="ind-std-${idx}" value="0">
+        <input type="hidden" class="biz-no" id="biz-no-${idx}" value="">
+        <input type="hidden" class="biz-name" id="biz-name-${idx}" value="">
       </div>
-      <div class="selected-industry" id="sel-${idx}">
-        <span id="sel-label-${idx}">-</span>
-        <span id="sel-rate-${idx}" style="font-size:11px;"></span>
+      <div>
+        <label>수입금액 (원)</label>
+        <input type="number" class="inc-amt" placeholder="0" oninput="updateTotalRev()">
       </div>
-      <input type="hidden" class="ind-code" id="ind-code-${idx}" value="">
-      <input type="hidden" class="ind-simp" id="ind-simp-${idx}" value="0">
-      <input type="hidden" class="ind-std" id="ind-std-${idx}" value="0">
+      <div>
+        <label style="font-size:11px;">종류</label>
+        <select class="inc-type" id="inc-type-${idx}" onchange="onIncTypeChange(${idx})" style="width:100%;padding:8px 6px;border:1px solid #d8d4c4;border-radius:6px;font-size:12px;background:#fff;">
+          <option value="rev">수입금액</option>
+          <option value="other">잡이익(영업외수익)</option>
+        </select>
+      </div>
+      <button class="rb" onclick="removeRow(${idx})" style="margin-top:20px;">✕</button>
     </div>
-    <div>
-      <label>수입금액 (원)</label>
-      <input type="number" class="inc-amt" placeholder="0" oninput="updateTotalRev()">
-    </div>
-    <div>
-      <label style="font-size:11px;">종류 <span style="color:#888;font-weight:400;">(신카발행·잡이익 등)</span></label>
-      <select class="inc-type" id="inc-type-${idx}" onchange="updateTotalRev()" style="width:100%;padding:8px 6px;border:1px solid #d8d4c4;border-radius:6px;font-size:12px;background:#fff;">
-        <option value="rev">수입금액 (경비율 적용)</option>
-        <option value="other">잡이익 (영업외수익)</option>
-      </select>
-    </div>
-    <button class="rb" onclick="removeRow(${idx})" style="margin-top:20px;">✕</button>`;
+    <div class="row-bottom">
+      <div>
+        <div class="rb-lbl">기장의무</div>
+        <select class="inc-bk" id="inc-bk-${idx}" onchange="updateTotalRev()">
+          <option value="auto">자동(안내문)</option>
+          <option value="simple">간편장부대상자</option>
+          <option value="double">복식부기의무자</option>
+        </select>
+      </div>
+      <div>
+        <div class="rb-lbl">신고방식</div>
+        <select class="inc-filing" id="inc-filing-${idx}" onchange="updateTotalRev()">
+          <option value="auto">자동 추천</option>
+          <option value="book">장부신고</option>
+          <option value="std">추계(기준경비율)</option>
+          <option value="simp">추계(단순경비율)</option>
+        </select>
+      </div>
+      <div>
+        <div class="rb-lbl">중기특감(§7)</div>
+        <select class="inc-exempt" id="inc-exempt-${idx}" onchange="onExemptChange(${idx})">
+          <option value="auto">자동 판정</option>
+          <option value="none">미적용</option>
+          <option value="sme7-10">§7 10% (수도권 소기업)</option>
+          <option value="sme7-15">§7 15% (수도권외 소·중기 도소매)</option>
+          <option value="sme7-20">§7 20% (수도권외 소기업)</option>
+          <option value="sme7-30">§7 30% (수도권외 소기업 일부)</option>
+          <option value="startup-50">§6 창업감면 50% (5년)</option>
+          <option value="startup-100">§6 청년창업 100% (5년)</option>
+        </select>
+      </div>
+      <div>
+        <div class="rb-lbl">메모</div>
+        <input type="text" class="inc-memo" id="inc-memo-${idx}" placeholder="예: 인적용역 3.3% 추계 / 부업">
+      </div>
+    </div>`;
   wrap.appendChild(div);
+}
+
+// ★ v60: 잡이익 행은 신고방식·감면 명세 비활성화 (잡이익은 경비 발생 없음)
+function onIncTypeChange(idx){
+  const row = document.querySelector(`.income-row[data-idx="${idx}"]`);
+  if(!row) return;
+  const t = document.getElementById('inc-type-'+idx)?.value || 'rev';
+  if(t === 'other') row.classList.add('is-other');
+  else row.classList.remove('is-other');
+  updateTotalRev();
+}
+
+// ★ v60: 감면 변경 시 — 일단 표시만 갱신 (실제 계산은 calc()에서)
+function onExemptChange(idx){
+  // 시각적 피드백만 — 계산은 calc() 시점
+  updateTotalRev();
 }
 
 function removeRow(idx){
@@ -3595,17 +3715,88 @@ function getIncomes(){
     const code = document.getElementById('ind-code-'+idx)?.value || '';
     const simp = N(document.getElementById('ind-simp-'+idx)?.value);
     const std = N(document.getElementById('ind-std-'+idx)?.value);
-    // ★ v59: 종류 (rev = 수입, other = 잡이익)
     const type = document.getElementById('inc-type-'+idx)?.value || 'rev';
-    // 단순경비율 초과율 및 기준금액
+    // ★ v60: 명세서 필드
+    const bkSel = document.getElementById('inc-bk-'+idx)?.value || 'auto';
+    const filingSel = document.getElementById('inc-filing-'+idx)?.value || 'auto';
+    const exemptSel = document.getElementById('inc-exempt-'+idx)?.value || 'auto';
+    const memo = document.getElementById('inc-memo-'+idx)?.value || '';
+    const bizNo = document.getElementById('biz-no-'+idx)?.value || '';
+    const bizName = document.getElementById('biz-name-'+idx)?.value || '';
+    
     const icItem = IC.find(d=>d.c===code);
     const simpOver = icItem ? icItem.so : simp;
-    // ★ 인적용역(94 코드)은 단순경비율 적용 기준금액이 4천만원 (소득령 §143④)
     let stdAmt = icItem ? icItem.sa : 24000000;
     if(code && code.startsWith('94')) stdAmt = 40000000;
-    if(amt>0) result.push({amt, code, simp, std, simpOver, stdAmt, type});
+    
+    if(amt>0) result.push({
+      amt, code, simp, std, simpOver, stdAmt, type,
+      bkSel, filingSel, exemptSel, memo, bizNo, bizName,
+      idx  // 행 식별용 (카드 표시에서 사용)
+    });
   });
   return result;
+}
+
+// ★ v60: 사업장별 자동 판정 헬퍼 — 안내문/업종 기반
+// 신고방식 자동 추천: 인적용역(94***) + 직전수입(=당해수입 사용 가능) 4,800만 이하 → 단순경비율 추계
+// 그 외 → 장부 (사용자가 안내문상 추계 강제 시 수정)
+function autoFiling(inc, parsedData){
+  // 행 단위 명시값이 있으면 그대로
+  if(inc.filingSel && inc.filingSel !== 'auto') return inc.filingSel;
+  
+  // 안내문상 기준경비율 강제 대상이면 → std
+  if(parsedData?.applyExpenseType === '기준경비율') return 'std';
+  
+  // 인적용역 + 소액(4,800만 미만)이면 단순경비율 추계
+  if(inc.code && inc.code.startsWith('94') && inc.amt < 48_000_000){
+    return 'simp';
+  }
+  // 그 외는 장부 권장
+  return 'book';
+}
+
+// 행 기장의무 결정 — 자동(안내문) 또는 사용자 명시
+function effectiveBookkeeping(inc, parsedData){
+  if(inc.bkSel && inc.bkSel !== 'auto'){
+    return inc.bkSel === 'double' ? '복식부기의무자' : '간편장부대상자';
+  }
+  return parsedData?.bookkeepingType || '간편장부대상자';
+}
+
+// ★ v60: 중기특감(§7) 대상 업종 자동 판정
+//   조특법 §7 대상: 제조업, 광업, 건설업, 도매업, 소매업, 운수업, 정보처리·통신, R&D, 농어업 등 48개 업종
+//   대상 제외 가장 확실한 케이스: 인적용역(94***), 부동산임대(701***), 보건의료(85***), 교육서비스(85***)
+function autoExemptSme7(inc){
+  if(!inc.code) return false;
+  const c = inc.code;
+  // 명백한 제외 업종 (인적용역, 부동산임대, 금융보험, 일부 서비스)
+  if(c.startsWith('94')) return false;       // 인적용역
+  if(c.startsWith('701')) return false;      // 부동산임대
+  if(c.startsWith('64') || c.startsWith('65') || c.startsWith('66')) return false; // 금융보험
+  if(c.startsWith('68')) return false;       // 부동산
+  if(c.startsWith('85')) return false;       // 보건의료·교육 일부 (정확한 구분 필요시 사용자 수동)
+  // 그 외 — 일단 후보로 표시 (사용자 검토)
+  return true;
+}
+
+// 행 감면 정보 결정 — 자동/사용자 명시
+function effectiveExempt(inc){
+  if(inc.exemptSel && inc.exemptSel !== 'auto'){
+    if(inc.exemptSel === 'none') return {type:'none', rate:0};
+    // sme7-10 / sme7-15 / sme7-20 / sme7-30 / startup-50 / startup-100
+    const m = inc.exemptSel.match(/^(sme7|startup)-(\d+)$/);
+    if(m){
+      return {
+        type: m[1] === 'sme7' ? 'sme7' : 'startup',
+        rate: parseInt(m[2]) / 100,
+        label: inc.exemptSel
+      };
+    }
+    return {type:'none', rate:0};
+  }
+  // 자동: 업종 대상이면 일단 후보 표시 (실제 적용은 사용자가 명시)
+  return {type:'none', rate:0, autoCandidate: autoExemptSme7(inc)};
 }
 // ★ v59: 수입(rev) / 잡이익(other) 분리 헬퍼
 function splitIncomes(incomes){
@@ -4164,6 +4355,153 @@ function calc(){
   // ★ v36: 기장 신고대리 (현재 확인 지출액 기준) — 가산세 없음
   const r4 = hasCurExp ? calcAll(i4, {noBookPenalty: false, noFilePenalty: false, totalRev: totalRev}) : null;
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ★ v60: 사업장별 명세서 모드 — 행별 신고방식·감면을 그대로 반영
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 처리 순서:
+  // 1. 각 행별 사업소득금액 산출 (해당 신고방식대로)
+  // 2. 잡이익은 그대로 합산
+  // 3. 합산된 사업소득금액 → 종합소득금액 → 산출세액
+  // 4. 감면 안분 (조특법 §132): 산출세액 × (감면대상 사업소득금액 / 종합소득금액) × 감면율
+  // 5. 무기장가산세: 추계신고한 사업장만 산정, 직전수입 4,800만 미만 면제
+  // 잡이익이 어느 사업장 소속인지는 의미 없음 (영업외수익 — 사업소득 합계에 단순 합산)
+  function calcMixCase(){
+    const items = [];   // 사업장별 결과
+    let mixBiz = 0;     // 사업소득금액 합계 (잡이익 제외)
+    let exemptTargetInc = 0;  // 감면대상 사업소득금액 합계
+    let exemptWeightedRate = 0;  // 감면대상 가중평균 감면율 (소득금액 가중)
+    let noBookBaseInc = 0;    // 무기장가산세 대상 사업소득금액 (추계신고 사업장의 소득금액)
+    let noBookExemptInc = 0;  // 무기장가산세 면제 사업장 소득금액
+    let usedSlr = 0;          // 장부신고 사업장에 적용된 평균 소득률 (표시용)
+    let usedSlrBase = 0;
+    
+    revIncomes.forEach(inc=>{
+      const filing = autoFiling(inc, parsedData);
+      const bkType = effectiveBookkeeping(inc, parsedData);
+      const isDouble = bkType === '복식부기의무자';
+      const exempt = effectiveExempt(inc);
+      
+      let bizInc = 0;       // 행별 사업소득금액
+      let bizExpense = 0;   // 행별 필요경비
+      let upperApplied = false;
+      let filingLabel = '';
+      
+      if(filing === 'std'){
+        // 추계(기준경비율)
+        const rate = isDouble ? (inc.std/100) * 0.5 : (inc.std/100);
+        bizExpense = Math.round(inc.amt * rate);
+        bizInc = inc.amt - bizExpense;
+        // 행별 상한배율 비교
+        const simpExp = Math.min(inc.amt, inc.stdAmt)*(inc.simp/100) + Math.max(0, inc.amt - inc.stdAmt)*(inc.simpOver/100);
+        const upper = Math.round((inc.amt - simpExp) * (isDouble ? 3.4 : 2.8));
+        if(bizInc > upper){ bizInc = upper; upperApplied = true; }
+        filingLabel = `추계(기준 ${(rate*100).toFixed(1)}%)${upperApplied?' · 상한':''}`;
+      } else if(filing === 'simp'){
+        // 추계(단순경비율)
+        const base = Math.min(inc.amt, inc.stdAmt);
+        const over = Math.max(0, inc.amt - inc.stdAmt);
+        bizExpense = Math.round(base*(inc.simp/100) + over*(inc.simpOver/100));
+        bizInc = inc.amt - bizExpense;
+        filingLabel = `추계(단순 ${inc.simp}%)`;
+      } else {
+        // 장부신고: 행별 소득률은 전체 슬라이더 값 사용 (행별 따로 설정은 v60 범위 외)
+        bizInc = Math.round(inc.amt * slr);
+        bizExpense = inc.amt - bizInc;
+        filingLabel = `장부 (소득률 ${(slr*100).toFixed(2)}%)`;
+        usedSlr += bizInc;
+        usedSlrBase += inc.amt;
+      }
+      
+      mixBiz += bizInc;
+      
+      // 감면 대상 — exemptSel이 명시되어 있고 0이 아니면
+      if(exempt.rate > 0){
+        exemptTargetInc += bizInc;
+        exemptWeightedRate += bizInc * exempt.rate;
+      }
+      
+      // 무기장가산세 — 추계신고이고 장부 미작성
+      const isEstimate = (filing === 'std' || filing === 'simp');
+      if(isEstimate){
+        // 소규모(직전수입 4,800만 미만) 자동 면제 — 당해 수입금액 기준 보수적 적용
+        const smallExempt = inc.amt < 48_000_000;
+        if(smallExempt){
+          noBookExemptInc += bizInc;
+        } else {
+          noBookBaseInc += bizInc;
+        }
+      }
+      
+      items.push({
+        idx: inc.idx,
+        code: inc.code,
+        bizName: inc.bizName || inc.memo || '',
+        amt: inc.amt,
+        bizInc,
+        bizExpense,
+        filing,
+        filingLabel,
+        bkType,
+        isDouble,
+        exempt,
+        upperApplied,
+        memo: inc.memo,
+        smallExempt: isEstimate && inc.amt < 48_000_000,
+        isEstimate
+      });
+    });
+    
+    // 잡이익 합산
+    const mixBizWithNonOp = mixBiz + nonOpInc;
+    const effExemptRate = exemptTargetInc > 0 ? (exemptWeightedRate / exemptTargetInc) : 0;
+    
+    return {
+      items,
+      mixBiz,                  // 사업소득금액(매출분 합계)
+      nonOpInc,                // 잡이익
+      mixBizTotal: mixBizWithNonOp,  // 사업소득금액 (잡이익 포함)
+      exemptTargetInc,         // 감면대상 사업소득금액 합계
+      effExemptRate,           // 가중평균 감면율
+      noBookBaseInc,           // 무기장가산세 대상 사업소득금액
+      noBookExemptInc,         // 무기장가산세 면제 사업소득금액
+      avgBookRate: usedSlrBase > 0 ? usedSlr / usedSlrBase : 0  // 표시용
+    };
+  }
+  
+  const mix = calcMixCase();
+  
+  // ★ v60: 명세서 모드 종합소득세 산출
+  //   calcAll을 호출하되, 산출세액 단계에서 감면 안분과 사업장별 가산세 처리를 위해
+  //   기존 함수에 옵션을 추가하지 않고 별도로 산정 후 결과만 r5로 보관
+  const r5_pre = calcAll(mix.mixBizTotal, {noBookPenalty: false, noFilePenalty: false, totalRev: totalRev});
+  // 감면 안분 — 조특법 §132
+  const r5_exemptAmt = (mix.exemptTargetInc > 0 && r5_pre.total_inc > 0)
+    ? Math.round(r5_pre.appliedRawTax * (mix.exemptTargetInc / r5_pre.total_inc) * mix.effExemptRate)
+    : 0;
+  // 무기장가산세 — 사업장별 면제 반영
+  //   = 산출세액(감면후) × (무기장 대상 사업소득금액 / 종합소득금액) × 20%
+  const r5_rawAfterExempt = Math.max(0, r5_pre.appliedRawTax - r5_exemptAmt);
+  const r5_noBookPen = (mix.noBookBaseInc > 0 && r5_pre.total_inc > 0)
+    ? Math.round(r5_rawAfterExempt * (mix.noBookBaseInc / r5_pre.total_inc) * 0.20)
+    : 0;
+  // 결정세액 재산정 (감면+가산세 반영)
+  const r5_totalCr = r5_pre.baseCr + r5_pre.childTaxCredit + r5_pre.pensionAccCredit + r5_pre.efileCredit + (r5_pre.appliedSpecialCredit||0) + (r5_pre.dnTotal||0) + (r5_pre.workTaxCredit||0);
+  const r5_det = Math.max(0, r5_rawAfterExempt - r5_totalCr) + r5_noBookPen;
+  // r5 결과 객체 — r1~r4와 같은 구조로 만들어 카드에서 사용
+  const r5 = Object.assign({}, r5_pre, {
+    exemptAmt: r5_exemptAmt,
+    exemptRate: mix.effExemptRate,
+    exemptType: mix.exemptTargetInc > 0 ? 'mix' : 'none',
+    appliedPen: r5_noBookPen,
+    appliedPenType: r5_noBookPen > 0 ? '무기장가산세 (사업장별 면제 반영)' : '',
+    noBookPen: r5_noBookPen,
+    det: r5_det,
+    bizIncome: mix.mixBizTotal,
+    // ★ v60: 명세서 부가정보
+    _mix: mix
+  });
+  const i5 = mix.mixBizTotal;  // 명세서 모드 사업소득금액
+
   // ★ 총 납부세액 기준으로 최저 판단 — v35 지방소득세 독립 계산 적용 (지방세법 §92, §103의3)
   // ★ 총 납부세액 기준으로 최저 판단 — v35 지방소득세 독립 계산 적용 (지방세법 §92, §103의3)
   // 공식: 국세 = 결정세액 - 원천징수 - 중간예납 - 근로소득결정세액 - 연금결정세액
@@ -4183,9 +4521,26 @@ function calc(){
   const totalPay2 = calcTotalPay(r2);
   const totalPay3 = calcTotalPay(r3);
   const totalPay4 = r4 ? calcTotalPay(r4) : Infinity;  // ★ v36
+  // ★ v60: 명세서 모드 총 납부세액 — r5 그대로 사용 (r5_det이 결정세액 포함)
+  //   r5는 calcAll의 정밀 totalPay를 못 쓰므로 간단 계산: 소득세 + 지방소득세
+  const totalPay5 = (() => {
+    const incPay = r5.det - r5.wh - r5.pp - r5.workTax - r5.pensionTax;
+    const locDet = Math.round(r5.det * 0.1);
+    const locWh = r5.localWh || 0;
+    const locWorkTax = Math.round(r5.workTax * 0.1);
+    const locPensionTax = Math.round(r5.pensionTax * 0.1);
+    const locPay = locDet - locWh - locWorkTax - locPensionTax;
+    return incPay + locPay;
+  })();
+  // 명세서 모드 카드 표시 여부 — 사업장이 2개 이상이거나, 행별로 자동추천이 아닌 설정이 있을 때
+  const hasMixCase = revIncomes.length >= 2 || revIncomes.some(inc=>{
+    return (inc.filingSel && inc.filingSel !== 'auto') ||
+           (inc.exemptSel && inc.exemptSel !== 'auto' && inc.exemptSel !== 'none');
+  });
   const candidates = [totalPay1, totalPay3];
   if(canUseSimpExpense) candidates.push(totalPay2);
   if(hasCurExp) candidates.push(totalPay4);
+  if(hasMixCase) candidates.push(totalPay5);
   const minT = Math.min(...candidates);
   const stdSubLabel = isDoubleEntry 
     ? `경비율 ${(stdRateApplied*100).toFixed(2)}% (×1/2)${upperLimitApplied?' · 상한 3.4배':''} · 가산세 20%` 
@@ -4195,6 +4550,24 @@ function calc(){
     {lbl:'간편 신고대리 (단순경비율)', sub:`경비율 ${(avgSimpDisplay*100).toFixed(1)}%${isDoubleEntry?' · 가산세 적용':''}`, inc:i2, r:r2, disabled: !canUseSimpExpense, warn: !canUseSimpExpense ? `❌ 적용 불가 — ${simpDisableReason}` : (isDoubleEntry?'⚠️ 복식부기의무 → 무신고/무기장가산세 비교 적용':'')},
     {lbl:'기장 신고대리', sub:`소득률 ${(appliedRate*100).toFixed(2)}%${parsedData.prevIncomeRate?' · 직전 '+parsedData.prevIncomeRate+'%':''}`, inc:i3, r:r3, disabled:false, warn:''}
   ];
+  // ★ v60: 사업장별 명세 신고 카드 — 혼합 케이스에서만 추가
+  if(hasMixCase){
+    const filingSummary = mix.items.map(it=>`${it.code||'-'}: ${it.filingLabel}`).join(' / ');
+    const exemptSummary = mix.exemptTargetInc > 0 
+      ? ` · 감면 ${(mix.effExemptRate*100).toFixed(0)}% (대상 ${F(mix.exemptTargetInc)}원)`
+      : '';
+    results.push({
+      lbl: '📋 사업장별 명세 신고',
+      sub: `${filingSummary}${exemptSummary}`,
+      inc: i5,
+      r: r5,
+      disabled: false,
+      warn: mix.noBookBaseInc > 0 
+        ? `⚠️ 추계신고 사업장 무기장가산세 적용 (대상 사업소득금액 ${F(mix.noBookBaseInc)}원)${mix.noBookExemptInc>0?`<br>💡 직전수입 4,800만 미만 사업장 ${F(mix.noBookExemptInc)}원은 가산세 면제 (소법 §81의5②1호)`:''}`
+        : '✓ 모든 사업장 장부신고 — 가산세 없음',
+      isMix: true  // 카드에서 사업장별 명세 상세 표시
+    });
+  }
   
   document.getElementById('cds').innerHTML = results.map(d=>{
     // ★ 단순경비율 적용 불가여도 카드는 정상 렌더링 (참고용으로 비교 가능)
@@ -4306,12 +4679,36 @@ function calc(){
         </div>`;
     }
 
+    // ★ v60: 명세 모드 카드는 사업장별 명세 행을 표시
+    let mixDetailRows = '';
+    if(d.isMix && d.r._mix){
+      const m = d.r._mix;
+      mixDetailRows = `<div style="background:#F0F7FF;margin:0 -4px;padding:6px 8px;border-radius:4px;margin-bottom:6px;font-size:11px;line-height:1.6;">
+        <div style="font-weight:700;color:#0C447C;margin-bottom:4px;">📋 사업장별 명세</div>
+        ${m.items.map(it=>{
+          const exLbl = it.exempt.rate > 0 
+            ? `<span style="color:#A06900;font-weight:600;">·감면 ${(it.exempt.rate*100).toFixed(0)}%</span>` 
+            : (it.exempt.autoCandidate ? '<span style="color:#888;font-size:10px;">(감면후보)</span>' : '');
+          const smallLbl = it.smallExempt ? ' <span style="color:#27500A;font-weight:600;font-size:10px;">[가산세면제]</span>' : '';
+          const upperLbl = it.upperApplied ? ' <span style="color:#A32D2D;font-size:10px;">[상한적용]</span>' : '';
+          return `<div style="padding:3px 0;border-bottom:1px dashed #c8dded;">
+            <span style="font-weight:600;">${it.code||'-'}</span>${it.memo?' ('+it.memo+')':''} · <span style="color:#185FA5;">${it.filingLabel}</span>${exLbl}${smallLbl}${upperLbl}<br>
+            <span style="margin-left:8px;color:#666;">수입 ${F(it.amt)} → 필요경비 △${F(it.bizExpense)} → 소득금액 <strong style="color:#0C447C;">${F(it.bizInc)}원</strong></span>
+          </div>`;
+        }).join('')}
+        <div style="padding:4px 0;font-weight:600;color:#0C447C;">사업소득금액 합계: ${F(m.mixBiz)}원${m.nonOpInc>0?' (+ 잡이익 '+F(m.nonOpInc)+')':''}</div>
+        ${m.exemptTargetInc > 0 ? `<div style="font-size:10px;color:#A06900;padding:2px 0;">└ 감면대상 사업소득금액: ${F(m.exemptTargetInc)}원 · 가중평균 감면율 ${(m.effExemptRate*100).toFixed(1)}% (조특법 §132 안분)</div>` : ''}
+        ${m.noBookBaseInc > 0 ? `<div style="font-size:10px;color:#A32D2D;padding:2px 0;">└ 무기장가산세 대상: ${F(m.noBookBaseInc)}원${m.noBookExemptInc>0?` · 면제 ${F(m.noBookExemptInc)}원`:''}</div>` : ''}
+      </div>`;
+    }
+    
     return `<div class="cc${isBest?' best':''}"${d.disabled?' style="background:#fafaf8;"':''}>
       <div class="cc-tit">
         <span>${d.lbl}<br><span style="font-size:11px;font-weight:400;color:#888;">${d.sub}</span></span>
         ${isBest?'<span class="best-b">최저세액</span>':d.disabled?'<span style="background:#FCEBEB;color:#A32D2D;font-size:10px;padding:2px 7px;border-radius:4px;white-space:nowrap;">참고용</span>':''}
       </div>
-      ${d.warn?`<div style="background:${d.disabled?'#FCEBEB':'#FAEEDA'};color:${d.disabled?'#A32D2D':'#633806'};padding:6px 8px;border-radius:6px;font-size:11px;margin-bottom:8px;line-height:1.4;">${d.warn}</div>`:''}
+      ${d.warn?`<div style="background:${d.disabled?'#FCEBEB':d.isMix?'#E6F1FB':'#FAEEDA'};color:${d.disabled?'#A32D2D':d.isMix?'#0C447C':'#633806'};padding:6px 8px;border-radius:6px;font-size:11px;margin-bottom:8px;line-height:1.4;">${d.warn}</div>`:''}
+      ${mixDetailRows}
       <div class="cr"><span class="cm">① 수입금액 <span style="font-size:10px;color:#888;">(매출분)</span></span><span>${F(totalRev)}원</span></div>
       <div class="cr"><span class="cm">② 필요경비</span><span class="crd">△${F(totalRev - (d.inc - nonOpInc))}원</span></div>
       ${curExpRows}
