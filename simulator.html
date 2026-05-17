@@ -250,7 +250,7 @@ input:focus,select:focus{outline:none;border-color:#185FA5;}
 <div class="container">
 <a class="back" href="index.html">← 인덱스로 돌아가기</a>
 <h1>🧮 종합소득세 신고대리 가결산 시뮬레이터</h1>
-<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v60</span> <span style="font-size:11px;color:#888;">(사업장별 명세서 모드 — 추계+장부 혼합 자동 처리)</span></p>
+<p class="sub">2025년 귀속 종합소득세 · 간편(기준)/간편(단순)/기장 3가지 비교 <span style="color:#185FA5;font-weight:600;">v61</span> <span style="font-size:11px;color:#888;">(소득률·직접입력 마지막값 우선 적용)</span></p>
 
 <!-- 이름 입력 -->
 <!-- ========== 입력 영역 (PDF는 결과만 인쇄) ========== -->
@@ -1894,11 +1894,18 @@ function updateAvgRateDisplay(){
 }
 
 // ★ v33: 소득률 슬라이더 ↔ 입력박스 양방향 동기화
+// ★ v61: 마지막 입력 추적 — 'rate' / 'amount' 중 사용자가 마지막에 손댄 쪽
+//   세금 계산 시 이 값을 우선 참조 → 모드 토글로 인해 의도가 사라지지 않게 함
+let _lastBookEdit = 'rate';  // 초기값: 슬라이더 기본 15%
+
 function syncRateFromSlider(){
   const sl = document.getElementById('rsl');
   const num = document.getElementById('rsl-num');
   if(!sl || !num) return;
   num.value = parseFloat(sl.value).toFixed(2);
+  _lastBookEdit = 'rate';  // ★ v61
+  // 슬라이더 값 변경 → amount 박스도 동기화 (사용자가 amount 모드로 토글했을 때 헷갈리지 않게)
+  _syncAmountFromRate();
   updateBookPreview('rate');
 }
 
@@ -1911,7 +1918,18 @@ function syncRateFromNumber(){
   if(v < 0.01) v = 0.01;
   if(v > 100) v = 100;
   sl.value = v;
+  _lastBookEdit = 'rate';  // ★ v61
+  _syncAmountFromRate();
   updateBookPreview('rate');
+}
+
+// ★ v61: 슬라이더값 → amount 박스 자동 채움 (반대 방향 동기화, _lastBookEdit는 그대로)
+function _syncAmountFromRate(){
+  const totalRev = _revOnlySum();
+  const rate = N(document.getElementById('rsl')?.value) / 100;
+  const amt = Math.round(totalRev * rate);
+  const amtEl = document.getElementById('book-amount');
+  if(amtEl && totalRev > 0) amtEl.value = amt;
 }
 
 // ★ v54: 소득금액 직접 입력 → 소득률 자동 역산
@@ -1945,10 +1963,13 @@ function syncFromAmount(){
   const num = document.getElementById('rsl-num');
   if(sl) sl.value = rate;
   if(num) num.value = rate.toFixed(2);
+  _lastBookEdit = 'amount';  // ★ v61: 사용자가 amount 박스를 손댐
   updateBookPreview('amount');
 }
 
 // ★ v54: 입력 모드 토글 (소득률 % vs 소득금액)
+// ★ v61: 토글은 UI 표시만 변경 — _lastBookEdit(=사용자 의도)는 그대로 보존
+//   계산 시점에 _lastBookEdit를 우선 참조하므로, 모드 토글로 인해 입력값이 무시되지 않음
 function toggleBookInputMode(){
   const mode = document.querySelector('input[name="book-input-mode"]:checked')?.value || 'rate';
   const rateBox = document.getElementById('book-mode-rate');
@@ -1966,30 +1987,54 @@ function toggleBookInputMode(){
     }
   });
   
-  // 모드 전환 시 양방향 값 동기화 (★ v59: 매출분만)
+  // ★ v61: 양쪽 박스를 항상 동기화해서 표시 (사용자가 어느 쪽 봐도 일치된 값 보임)
+  //         단, _lastBookEdit는 사용자가 실제로 손댄 입력이 보존됨
+  //   - rate 모드: 슬라이더값으로 amount 박스 채움 (표시용)
+  //   - amount 모드: amount 박스 값으로 슬라이더 동기화 (표시용)
   if(mode === 'amount'){
-    const totalRev = _revOnlySum();
-    const rate = N(document.getElementById('rsl')?.value) / 100;
-    const amt = Math.round(totalRev * rate);
-    const amtEl = document.getElementById('book-amount');
-    if(amtEl && totalRev > 0) amtEl.value = amt;
+    // _lastBookEdit가 rate라면 슬라이더값을 amount 박스로 표시
+    if(_lastBookEdit === 'rate'){
+      _syncAmountFromRate();
+    }
+    // _lastBookEdit가 amount라면 기존 amount 값 그대로 (덮어쓰지 않음)
   } else {
-    syncFromAmount();
+    // _lastBookEdit가 amount라면 amount → rate 역산 (표시용)
+    if(_lastBookEdit === 'amount'){
+      // amount에서 rate 역산은 syncFromAmount가 하지만, _lastBookEdit 변경 없이 표시만 갱신
+      const amtEl = document.getElementById('book-amount');
+      const amt = N(amtEl?.value);
+      const totalRev = _revOnlySum();
+      if(amt > 0 && totalRev > 0){
+        let rate = (amt / totalRev) * 100;
+        if(rate < 0.01) rate = 0.01;
+        if(rate > 100) rate = 100;
+        const sl = document.getElementById('rsl');
+        const num = document.getElementById('rsl-num');
+        if(sl) sl.value = rate;
+        if(num) num.value = rate.toFixed(2);
+      }
+    }
   }
   updateBookPreview(mode);
 }
 
 // ★ v54: 모드별 미리보기 (수입금액·소득률·소득금액 관계 표시) — ★ v59: 매출분만
+// ★ v61: "실제 계산 적용값" 배지 — 모드 토글과 무관하게 사용자 마지막 입력이 적용됨을 명시
 function updateBookPreview(mode){
   const totalRev = _revOnlySum();
   const rate = N(document.getElementById('rsl')?.value);
   const amt = Math.round(totalRev * rate / 100);
   
+  // ★ v61: 적용 배지 — 어떤 입력이 계산에 적용되는지 명시
+  const appliedBadge = _lastBookEdit === 'amount'
+    ? '<span style="display:inline-block;background:#185FA5;color:#FFF;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;margin-left:6px;">📌 직접입력값 적용</span>'
+    : '<span style="display:inline-block;background:#3B6D11;color:#FFF;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;margin-left:6px;">📌 소득률 적용</span>';
+  
   if(mode === 'rate'){
     const previewEl = document.getElementById('rate-preview');
     if(!previewEl) return;
     if(totalRev > 0){
-      previewEl.innerHTML = `→ 수입금액(매출분) <strong>${F(totalRev)}원</strong> × ${rate.toFixed(2)}% = 사업소득금액 <strong style="color:#185FA5;">${F(amt)}원</strong> <span style="font-size:10px;color:#888;">(잡이익 별도 합산)</span>`;
+      previewEl.innerHTML = `→ 수입금액(매출분) <strong>${F(totalRev)}원</strong> × ${rate.toFixed(2)}% = 사업소득금액 <strong style="color:#185FA5;">${F(amt)}원</strong> <span style="font-size:10px;color:#888;">(잡이익 별도 합산)</span>${appliedBadge}`;
     } else {
       previewEl.textContent = '수입금액 입력 시 소득금액이 자동 계산됩니다';
     }
@@ -2000,7 +2045,7 @@ function updateBookPreview(mode){
     const inputAmt = N(amtEl?.value);
     if(totalRev > 0 && inputAmt > 0){
       const calcRate = (inputAmt / totalRev) * 100;
-      previewEl.innerHTML = `→ 수입금액(매출분) <strong>${F(totalRev)}원</strong> 대비 <strong style="color:#185FA5;">소득률 ${calcRate.toFixed(2)}%</strong> (자동 역산) <span style="font-size:10px;color:#888;">· 잡이익은 별도 합산</span>`;
+      previewEl.innerHTML = `→ 수입금액(매출분) <strong>${F(totalRev)}원</strong> 대비 <strong style="color:#185FA5;">소득률 ${calcRate.toFixed(2)}%</strong> (자동 역산) <span style="font-size:10px;color:#888;">· 잡이익은 별도 합산</span>${appliedBadge}`;
     } else if(totalRev <= 0){
       previewEl.innerHTML = `<span style="color:#A32D2D;">⚠ 수입금액을 먼저 입력하세요 (소득률 역산 불가)</span>`;
     } else {
@@ -4261,7 +4306,11 @@ function calc(){
   const totalAll = totalRev + nonOpInc;
   const slr = N(document.getElementById('rsl').value)/100;
   // ★ v58: 장부 입력 모드 — amount(소득금액 직접입력) 모드면 입력값 그대로 사용
-  const bookInputMode = document.querySelector('input[name="book-input-mode"]:checked')?.value || 'rate';
+  // ★ v61: 사용자가 마지막에 손댄 입력(_lastBookEdit)을 우선 사용
+  //   - 모드 토글로 인해 amount/rate 라디오가 어느 쪽이든, 사용자가 실제로 입력·조작한 값이 적용됨
+  //   - 시나리오: rate에 15% 입력 → amount 모드 토글 → 계산 → rate 15%로 계산 (✓ 의도 보존)
+  //   - 시나리오: amount에 5,036,307 입력 → rate 모드 토글 → 계산 → amount 5,036,307로 계산 (✓ 의도 보존)
+  const bookInputMode = _lastBookEdit;  // v61: 라디오 대신 마지막 입력 추적
   const bookAmountInput = N(document.getElementById('book-amount')?.value);
   const otherType = document.getElementById('other-type').value;
 
